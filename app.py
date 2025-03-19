@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import tensorflow as tf
+import numpy as np
+import cv2
 from PIL import Image
 
 # Load pest report data
@@ -10,97 +13,92 @@ try:
 except FileNotFoundError:
     pest_data = pd.DataFrame(columns=["Location", "Pest Type", "Notes"])
 
+# Load a pre-trained MobileNetV2 model for pest detection
+model = tf.keras.applications.MobileNetV2(weights='imagenet')
+
+# Define pest-related keywords for filtering predictions
+pest_keywords = ["weevil", "mite", "fungus", "pest", "beetle", "insect", "damage"]
+
 # App Title
-st.title("🌴 Palm Tree Health Monitoring Guide")
+st.title("Palm Tree Health Monitoring Guide")
 
 # Sidebar Navigation
-menu = ["Home", "Pest Prevention Tips", "Tree Maintenance Checklist", "Image Comparison", "Disease Database", "Pest Reporting", "Pest Data Visualization"]
+menu = ["Home", "Tree Maintenance Checklist", "Pest Reporting", "Pest Data Visualization", "AI Pest Detection"]
 choice = st.sidebar.selectbox("Navigation", menu)
 
 # Home Page
 if choice == "Home":
     st.header("Welcome to the Palm Tree Health Monitoring Guide")
-    st.write("This app helps farmers maintain healthy palm trees and detect potential infestations early.")
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Palm_Tree.jpg/800px-Palm_Tree.jpg", 
-         caption="Healthy Palm Trees", use_container_width=True)
-
-
-# Pest Prevention Tips Page
-elif choice == "Pest Prevention Tips":
-    st.header("🌿 Pest Prevention Tips")
-    tips = [
-        "Regularly inspect palm trees for early signs of infestation.",
-        "Prune dead or weak fronds to prevent pest breeding grounds.",
-        "Avoid mechanical damage to the trunk, as it can attract pests.",
-        "Use pheromone traps to monitor and control Red Palm Weevils.",
-        "Ensure proper irrigation and fertilization for strong, pest-resistant trees."
-    ]
-    for tip in tips:
-        st.markdown(f"- {tip}")
+    st.write("This application assists farmers in maintaining healthy palm trees and detecting potential infestations early.")
+    st.image("https://upload.wikimedia.org/wikipedia/commons/9/9a/Palm_Tree.jpg", caption="Healthy Palm Trees", use_container_width=True)
 
 # Tree Maintenance Checklist
 elif choice == "Tree Maintenance Checklist":
-    st.header("✅ Palm Tree Maintenance Checklist")
-    checklist = {
-        "Are the leaves green and healthy?": False,
-        "Are there any visible holes in the trunk?": False,
-        "Are there any unusual sounds inside the trunk?": False,
-        "Is there sap oozing from the tree?": False,
-        "Are there any weak or drooping fronds?": False
-    }
-    responses = {}
-    for question in checklist:
-        responses[question] = st.checkbox(question)
-    if st.button("Submit Checklist"):
-        st.success("Thank you! If you notice issues, consider further inspection.")
-
-# Image Comparison (Basic Image Uploader)
-elif choice == "Image Comparison":
-    st.header("📸 Compare Your Palm Tree Images")
-    uploaded_file = st.file_uploader("Upload an image of your palm tree", type=["jpg", "png", "jpeg"])
-    if uploaded_file is not None:
-        img = Image.open(uploaded_file)
-        st.image(img, caption="Uploaded Image", use_column_width=True)
-        st.write("Ensure your palm tree has no visible signs of infestation such as holes or discoloration.")
-
-# Disease Database
-elif choice == "Disease Database":
-    st.header("🌿 Common Palm Tree Diseases")
-    diseases = {
-        "Lethal Yellowing": "Affects the vascular system, causing frond yellowing and fruit drop.",
-        "Ganoderma Butt Rot": "Fungal disease that causes decay at the base of the trunk.",
-        "Fusarium Wilt": "Affects fronds, causing one-sided yellowing and wilting.",
-        "Red Palm Weevil Infestation": "Larvae burrow into the trunk, leading to structural weakness."
-    }
-    for disease, description in diseases.items():
-        st.subheader(disease)
-        st.write(description)
+    st.header("Tree Maintenance Checklist")
+    st.write("Ensure optimal health of palm trees by following this checklist.")
+    tasks = [
+        "Prune dead fronds regularly.",
+        "Water adequately based on soil moisture levels.",
+        "Apply fertilizers as recommended for palm trees.",
+        "Inspect trees for signs of pest infestations.",
+        "Ensure proper spacing between trees to reduce disease spread."
+    ]
+    completed_tasks = []
+    for task in tasks:
+        if st.checkbox(task):
+            completed_tasks.append(task)
+    if len(completed_tasks) == len(tasks):
+        st.success("All maintenance tasks completed!")
 
 # Pest Reporting
 elif choice == "Pest Reporting":
-    st.header("📍 Report a Pest Sighting")
-    location = st.text_input("Enter Location:")
-    pest_type = st.selectbox("Select Pest Type:", ["Red Palm Weevil", "Spider Mites", "Fungal Infection", "Other"])
-    notes = st.text_area("Additional Notes:")
+    st.header("Pest Reporting")
+    location = st.text_input("Enter the location of infestation:")
+    pest_type = st.text_input("Enter pest type:")
+    notes = st.text_area("Additional notes:")
     if st.button("Submit Report"):
-        new_entry = pd.DataFrame([[location, pest_type, notes]], columns=["Location", "Pest Type", "Notes"])
-        pest_data = pd.concat([pest_data, new_entry], ignore_index=True)
+        new_report = pd.DataFrame([[location, pest_type, notes]], columns=["Location", "Pest Type", "Notes"])
+        pest_data = pd.concat([pest_data, new_report], ignore_index=True)
         pest_data.to_csv(pest_data_file, index=False)
-        st.success("Pest report submitted successfully!")
+        st.success("Pest report submitted successfully.")
 
 # Pest Data Visualization
 elif choice == "Pest Data Visualization":
-    st.header("📊 Pest Report Data")
+    st.header("Pest Data Visualization")
     if not pest_data.empty:
-        st.write("### Recent Pest Reports")
-        st.dataframe(pest_data)
-        st.write("### Pest Type Distribution")
+        st.write("Visualizing reported pest infestations.")
         fig, ax = plt.subplots()
-        pest_data["Pest Type"].value_counts().plot(kind="bar", ax=ax, color='green')
+        pest_counts = pest_data["Pest Type"].value_counts()
+        pest_counts.plot(kind="bar", ax=ax)
+        ax.set_title("Reported Pest Infestations")
+        ax.set_xlabel("Pest Type")
+        ax.set_ylabel("Count")
         st.pyplot(fig)
     else:
-        st.info("No pest reports available yet.")
+        st.write("No pest reports available for visualization.")
 
-# Footer
-st.markdown("---")
-st.markdown("Developed using **Streamlit**. Free to use and deploy!")
+# AI Pest Detection
+elif choice == "AI Pest Detection":
+    st.header("AI Pest Detection")
+    uploaded_pest_image = st.file_uploader("Upload an image for pest detection", type=["jpg", "png", "jpeg"])
+    if uploaded_pest_image is not None:
+        image = Image.open(uploaded_pest_image)
+        st.image(image, caption="Uploaded Image", use_container_width=True)
+        image = image.resize((224, 224))
+        image_array = np.array(image)
+        image_array = np.expand_dims(image_array, axis=0)
+        image_array = tf.keras.applications.mobilenet_v2.preprocess_input(image_array)
+        predictions = model.predict(image_array)
+        decoded_predictions = tf.keras.applications.mobilenet_v2.decode_predictions(predictions, top=3)[0]
+        
+        # Filter predictions to only show pest-related results
+        pest_prediction = None
+        for _, label, _ in decoded_predictions:
+            if any(keyword in label.lower() for keyword in pest_keywords):
+                pest_prediction = label
+                break
+        
+        if pest_prediction:
+            st.write(f"### AI Prediction: {pest_prediction}")
+        else:
+            st.write("### AI did not detect a known pest. Further inspection is recommended.")
